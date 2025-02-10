@@ -2,6 +2,9 @@ import time
 from typing import Dict
 
 import numpy as np
+from deoxys import config_root
+from deoxys.franka_interface import FrankaInterface
+from deoxys.utils import YamlConfig
 
 from gello.robots.robot import Robot
 
@@ -12,9 +15,6 @@ class PandaRobot(Robot):
     """A class representing a UR robot."""
 
     def __init__(self, robot_ip: str = "100.97.47.74"):
-        from deoxys import config_root
-        from deoxys.utils import YamlConfig
-        from deoxys.franka_interface import FrankaInterface
 
         self.robot = FrankaInterface(
             config_root + "/charmander.yml",
