@@ -177,12 +177,9 @@ class MujocoRobotServer:
             f"Expected joint state of length {self._num_joints}, "
             f"got {len(joint_state)}."
         )
-        if self._has_gripper:
-            _joint_state = joint_state.copy()
-            _joint_state[-1] = _joint_state[-1] * 255
-            self._joint_cmd = _joint_state
-        else:
-            self._joint_cmd = joint_state.copy()
+        _joint_state = joint_state.copy()
+        _joint_state[-1] = 255 - _joint_state[-1] * 255
+        self._joint_cmd = _joint_state
 
     def freedrive_enabled(self) -> bool:
         return True
