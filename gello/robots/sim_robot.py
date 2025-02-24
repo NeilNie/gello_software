@@ -2,16 +2,38 @@ import pickle
 import threading
 import time
 from typing import Any, Dict, Optional
-
+import pybullet as pb
 import mujoco
 import mujoco.viewer
 import numpy as np
 import zmq
 from dm_control import mjcf
-
+from pybullet_utils import bullet_client as bc
 from gello.robots.robot import Robot
 
 assert mujoco.viewer is mujoco.viewer
+
+
+def pb_set_joint_angles(pb_client, arm, joint_angles):
+    for i, angle in enumerate(joint_angles):
+        pb_client.resetJointState(arm, i, angle)
+
+
+def pb_get_eef_pose(pb_client, arm, joint_angles):
+    pb_set_joint_angles(pb_client, arm, joint_angles)
+    ls = pb_client.getLinkState(arm, 9, computeForwardKinematics=True)
+    ee_pos = np.array(ls[0])
+    ee_orn = np.array(ls[1])
+    return ee_pos, ee_orn
+
+
+def pb_solve_target_joints(pb_client, arm, eef_pos, eef_orn, current_joint, maxNumIterations=50, **kwargs):
+    pb_set_joint_angles(pb_client, arm, current_joint)
+    joint_des = list(
+        pb_client.calculateInverseKinematics(arm, 9, eef_pos, eef_orn, maxNumIterations=maxNumIterations, **kwargs)
+    )
+    return np.array(joint_des[:7])
+
 
 
 def attach_hand_to_arm(
@@ -253,44 +275,33 @@ class MujocoRobotServer:
         self.stop()
 
 
-class MujocoBimanualRobotServer:
+class SimBimanualRobotServer:
     def __init__(
             self,
-            xml_path: str,
-            gripper_xml_path: Optional[str] = None,
+            urdf_path: str,
             host: str = "127.0.0.1",
-            port: int = 5556,
+            port: int = 6001,
             print_joints: bool = False,
     ):
-        self._has_gripper = gripper_xml_path is not None
-        arena = build_scene(xml_path, gripper_xml_path, num_robots=1)
 
-        assets: Dict[str, str] = {}
-        for asset in arena.asset.all_children():
-            if asset.tag == "mesh":
-                f = asset.file
-                assets[f.get_vfs_filename()] = asset.file.contents
+        # use pybullet to load the robot
+        self.pb0 = bc.BulletClient(connection_mode=pb.GUI)
+        self.pb_arm_left = self.pb0.loadURDF(urdf_path, useFixedBase=True, basePosition=[0.3, 0.0, 0.0])
+        self.pb_arm_right = self.pb0.loadURDF(urdf_path, useFixedBase=True, basePosition=[-0.3, 0.0, 0.0])
+        
+        pb_set_joint_angles(self.pb0, self.pb_arm_left, [0.0]*7)
+        pb_set_joint_angles(self.pb0, self.pb_arm_right, [0.0]*7)
 
-        xml_string = arena.to_xml_string()
-        # save xml_string to file
-        with open("arena.xml", "w") as f:
-            f.write(xml_string)
-
-        # left arm
-        self._model_l = mujoco.MjModel.from_xml_string(xml_string, assets)
-        self._data_l = mujoco.MjData(self._model_l)
-
-        # right arm
-        self._model_r = mujoco.MjModel.from_xml_string(xml_string, assets)
-        self._data_r = mujoco.MjData(self._model_r)
-
-        self._num_joints = self._model_l.nu + self._model_r.nu
+        self._num_joints = 14
 
         self._joint_state = np.zeros(self._num_joints)
         self._joint_cmd = self._joint_state
 
-        self._zmq_server = ZMQRobotServer(robot=self, host=host, port=port)
-        self._zmq_server_thread = ZMQServerThread(self._zmq_server)
+        self._zmq_server_l = ZMQRobotServer(robot=self, host=host, port=port)
+        self._zmq_server_thread_l = ZMQServerThread(self._zmq_server_l)
+
+        self._zmq_server_r = ZMQRobotServer(robot=self, host=host, port=port+1)
+        self._zmq_server_thread_r = ZMQServerThread(self._zmq_server_r)
 
         self._print_joints = print_joints
 
@@ -316,65 +327,27 @@ class MujocoBimanualRobotServer:
         pass
 
     def get_observations(self) -> Dict[str, np.ndarray]:
-        joint_positions = self._data.qpos.copy()[: self._num_joints]
-        joint_velocities = self._data.qvel.copy()[: self._num_joints]
-        ee_site = "attachment_site"
-        try:
-            ee_pos = self._data.site_xpos.copy()[
-                mujoco.mj_name2id(self._model, 6, ee_site)
-            ]
-            ee_mat = self._data.site_xmat.copy()[
-                mujoco.mj_name2id(self._model, 6, ee_site)
-            ]
-            ee_quat = np.zeros(4)
-            mujoco.mju_mat2Quat(ee_quat, ee_mat)
-        except Exception:
-            ee_pos = np.zeros(3)
-            ee_quat = np.zeros(4)
-            ee_quat[0] = 1
+        # TODO update this
+        joint_positions = None
+        ee_pos = np.zeros(3)
+        ee_quat = np.zeros(4)
         gripper_pos = self._data.qpos.copy()[self._num_joints - 1]
         return {
             "joint_positions": joint_positions,
-            "joint_velocities": joint_velocities,
             "ee_pos_quat": np.concatenate([ee_pos, ee_quat]),
             "gripper_position": gripper_pos,
         }
 
     def serve(self) -> None:
         # start the zmq server
-        self._zmq_server_thread.start()
-        with mujoco.viewer.launch_passive(self._model_l, self._data_l) as viewer:
-            while viewer.is_running():
-                step_start = time.time()
-
-                # mj_step can be replaced with code that also evaluates
-                # a policy and applies a control signal before stepping the physics.
-                self._data_l.ctrl[:] = self._joint_cmd
-                mujoco.mj_step(self._model, self._data_l)
-                self._joint_state = self._data_l.qpos.copy()[: self._num_joints]
-
-                if self._print_joints:
-                    print(self._joint_state)
-
-                # Example modification of a viewer option: toggle contact points every two seconds.
-                with viewer.lock():
-                    # TODO remove?
-                    viewer.opt.flags[mujoco.mjtVisFlag.mjVIS_CONTACTPOINT] = int(
-                        self._data_l.time % 2
-                    )
-
-                # Pick up changes to the physics state, apply perturbations, update options from GUI.
-                viewer.sync()
-
-                # Rudimentary time keeping, will drift relative to wall clock.
-                time_until_next_step = self._model.opt.timestep - (
-                        time.time() - step_start
-                )
-                if time_until_next_step > 0:
-                    time.sleep(time_until_next_step)
+        self._zmq_server_thread_r.start()
+        self._zmq_server_thread_l.start()
+        
+        # step the simulation
 
     def stop(self) -> None:
-        self._zmq_server_thread.join()
+        self._zmq_server_thread_r.join()
+        self._zmq_server_thread_l.join()
 
     def __del__(self) -> None:
         self.stop()

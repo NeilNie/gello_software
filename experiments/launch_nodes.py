@@ -36,9 +36,8 @@ def launch_robot_server(args: Args):
             Path(__file__).parent.parent / "third_party" / "mujoco_menagerie"
         )
         xml = MENAGERIE_ROOT / "franka_emika_panda" / "panda.xml"
-        gripper_xml = None
         server = MujocoRobotServer(
-            xml_path=xml, gripper_xml_path=gripper_xml, port=port, host=args.hostname
+            xml_path=xml, gripper_xml_path=None, port=port, host=args.hostname
         )
         server.serve()
     elif args.robot == "sim_xarm":
@@ -48,9 +47,16 @@ def launch_robot_server(args: Args):
             Path(__file__).parent.parent / "third_party" / "mujoco_menagerie"
         )
         xml = MENAGERIE_ROOT / "ufactory_xarm7" / "xarm7.xml"
-        gripper_xml = None
         server = MujocoRobotServer(
-            xml_path=xml, gripper_xml_path=gripper_xml, port=port, host=args.hostname
+            xml_path=xml, gripper_xml_path=None, port=port, host=args.hostname
+        )
+        server.serve()
+    elif args.robot == "sim_bimanual_panda":
+        from gello.robots.sim_robot import SimBimanualRobotServer
+
+        xml = "/home/kdm/Workspace/vlm-policy-learning/data/franka_arm/panda.urdf"
+        server = SimBimanualRobotServer(
+            urdf_path=xml, port=port, host=args.hostname
         )
         server.serve()
 
@@ -74,6 +80,14 @@ def launch_robot_server(args: Args):
             _robot_l = URRobot(robot_ip="192.168.2.10")
             _robot_r = URRobot(robot_ip="192.168.1.10")
             robot = BimanualRobot(_robot_l, _robot_r)
+        elif args.robot == "bimanual_panda":
+            from gello.robots.bimanual_panda import BimanualPandaRobot
+            from gello.robots.panda import PandaRobot
+
+            _robot_l = PandaRobot()
+            _robot_r = PandaRobot()
+            robot = BimanualPandaRobot(_robot_l, _robot_r)
+
         elif args.robot == "none" or args.robot == "print":
             robot = PrintRobot(8)
 

@@ -9,7 +9,7 @@ from gello.robots.panda import PandaRobot
 MAX_OPEN = 0.09
 
 
-class PandaRobot(BimanualRobot):
+class BimanualPandaRobot(BimanualRobot):
     """A class representing a UR robot."""
 
     def __init__(self, robot_l: PandaRobot, robot_r: PandaRobot):
