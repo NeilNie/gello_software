@@ -1,7 +1,7 @@
 import pickle
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 import pybullet as pb
 import mujoco
 import mujoco.viewer
@@ -14,12 +14,20 @@ from gello.robots.robot import Robot
 assert mujoco.viewer is mujoco.viewer
 
 
-def pb_set_joint_angles(pb_client, arm, joint_angles):
+def pb_get_joint_angles(pb_client, arm) -> np.ndarray:
+    angles = []
+    for i in range(pb_client.getNumJoints(arm)):
+        joint_info = pb_client.getJointInfo(arm, i)
+        angles.append(joint_info[0])
+    return np.array(angles)
+
+
+def pb_set_joint_angles(pb_client, arm, joint_angles: np.ndarray):
     for i, angle in enumerate(joint_angles):
         pb_client.resetJointState(arm, i, angle)
 
 
-def pb_get_eef_pose(pb_client, arm, joint_angles):
+def pb_get_eef_pose(pb_client, arm, joint_angles) -> Tuple[np.ndarray, np.ndarray]:
     pb_set_joint_angles(pb_client, arm, joint_angles)
     ls = pb_client.getLinkState(arm, 9, computeForwardKinematics=True)
     ee_pos = np.array(ls[0])
@@ -328,20 +336,26 @@ class SimBimanualRobotServer:
 
     def get_observations(self) -> Dict[str, np.ndarray]:
         # TODO update this
-        joint_positions = None
+        joint_positions_l = pb_get_joint_angles(self.pb0, self.pb_arm_left)
+        joint_positions_r = pb_get_joint_angles(self.pb0, self.pb_arm_right)
         ee_pos = np.zeros(3)
         ee_quat = np.zeros(4)
-        gripper_pos = self._data.qpos.copy()[self._num_joints - 1]
         return {
-            "joint_positions": joint_positions,
+            "joint_positions_l": joint_positions_l,
+            "joint_positions_r": joint_positions_r,
             "ee_pos_quat": np.concatenate([ee_pos, ee_quat]),
-            "gripper_position": gripper_pos,
+            "gripper_position": 0,
         }
 
     def serve(self) -> None:
         # start the zmq server
         self._zmq_server_thread_r.start()
         self._zmq_server_thread_l.start()
+        
+        while True:
+            
+            self.pb0.stepSimulation()
+            time.sleep(1. / 60.)
         
         # step the simulation
 
