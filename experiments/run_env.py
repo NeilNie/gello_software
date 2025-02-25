@@ -32,7 +32,7 @@ class Args:
     base_camera_port: int = 5001
     hostname: str = "127.0.0.1"
     robot_type: str = None  # only needed for quest agent or spacemouse agent
-    hz: int = 100
+    hz: int = 200
     start_joints: Optional[Tuple[float, ...]] = None
 
     gello_port: Optional[str] = None
@@ -168,7 +168,7 @@ def main(args):
             print(
                 f"joint[{i}]: \t delta: {delta:4.3f} , leader: \t{joint:4.3f} , follower: \t{current_j:4.3f}"
             )
-        return
+        # return
 
     print(f"Start pos: {len(start_pos)}", f"Joints: {len(joints)}")
     assert len(start_pos) == len(
@@ -198,7 +198,7 @@ def main(args):
             print(
                 f"Joint [{j}], leader: {action[j]}, follower: {joints[j]}, diff: {action[j] - joints[j]}"
             )
-        exit()
+        # exit()
 
     if args.use_save_interface:
         from gello.data_utils.keyboard_interface import KBReset
@@ -239,8 +239,10 @@ def main(args):
                 save_path = None
             else:
                 raise ValueError(f"Invalid state {state}")
-        obs = env.step(action)
 
+        start = time.time()
+        obs = env.step(action)
+        end = time.time()
 
 if __name__ == "__main__":
     main(tyro.cli(Args))

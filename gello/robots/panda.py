@@ -108,21 +108,15 @@ class PandaRobot(Robot):
         prop = {}
         if len(self.robot._state_buffer) == 0:
             prop["q"] = []
-            prop["dq"] = []
             prop["eef_pos"] = []
             prop["eef_quat"] = []
             prop["tau_ext_hat_filtered"] = []
             prop["O_F_ext_hat_K"] = []
             prop["K_F_ext_hat_K"] = []
 
-            prop["joint_contact"] = []
-            prop["cartesian_contact"] = []
-            prop["joint_collision"] = []
-            prop["cartesian_collision"] = []
         else:
             robot_state = self.robot._state_buffer[-1]
             prop["q"] = list(np.array(robot_state.q))
-            prop["dq"] = list(np.array(robot_state.dq))
             eef_quat, eef_pos = self.robot.last_eef_quat_and_pos
             prop["eef_pos"] = list(eef_pos[:, 0])
             prop["eef_quat"] = list(eef_quat)
@@ -132,12 +126,6 @@ class PandaRobot(Robot):
             prop["tau_ext_hat_filtered"] = list(np.array(robot_state.tau_ext_hat_filtered))
             prop["O_F_ext_hat_K"] = list(np.array(robot_state.O_F_ext_hat_K))
             prop["K_F_ext_hat_K"] = list(np.array(robot_state.K_F_ext_hat_K))
-
-            # collision
-            prop["joint_contact"] = list(np.array(robot_state.joint_contact))
-            prop["cartesian_contact"] = list(np.array(robot_state.cartesian_contact))
-            prop["joint_collision"] = list(np.array(robot_state.joint_collision))
-            prop["cartesian_collision"] = list(np.array(robot_state.cartesian_collision))
 
         if len(self.robot._gripper_state_buffer) == 0:
             prop["gripper_width"] = None
