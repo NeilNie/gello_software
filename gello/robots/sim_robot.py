@@ -2,13 +2,11 @@ import pickle
 import threading
 import time
 from typing import Any, Dict, Optional, Tuple
-import pybullet as pb
 import mujoco
 import mujoco.viewer
 import numpy as np
 import zmq
 from dm_control import mjcf
-from pybullet_utils import bullet_client as bc
 from gello.robots.robot import Robot
 
 assert mujoco.viewer is mujoco.viewer
@@ -278,90 +276,6 @@ class MujocoRobotServer:
 
     def stop(self) -> None:
         self._zmq_server_thread.join()
-
-    def __del__(self) -> None:
-        self.stop()
-
-
-class SimBimanualRobotServer:
-    def __init__(
-            self,
-            urdf_path: str,
-            host: str = "127.0.0.1",
-            port: int = 6001,
-            print_joints: bool = False,
-    ):
-
-        # use pybullet to load the robot
-        self.pb0 = bc.BulletClient(connection_mode=pb.GUI)
-        self.pb_arm_left = self.pb0.loadURDF(urdf_path, useFixedBase=True, basePosition=[0.3, 0.0, 0.0])
-        self.pb_arm_right = self.pb0.loadURDF(urdf_path, useFixedBase=True, basePosition=[-0.3, 0.0, 0.0])
-        
-        pb_set_joint_angles(self.pb0, self.pb_arm_left, [0.0]*7)
-        pb_set_joint_angles(self.pb0, self.pb_arm_right, [0.0]*7)
-
-        self._num_joints = 14
-
-        self._joint_state = np.zeros(self._num_joints)
-        self._joint_cmd = self._joint_state
-
-        self._zmq_server_l = ZMQRobotServer(robot=self, host=host, port=port)
-        self._zmq_server_thread_l = ZMQServerThread(self._zmq_server_l)
-
-        self._zmq_server_r = ZMQRobotServer(robot=self, host=host, port=port+1)
-        self._zmq_server_thread_r = ZMQServerThread(self._zmq_server_r)
-
-        self._print_joints = print_joints
-
-    def num_dofs(self) -> int:
-        return self._num_joints
-
-    def get_joint_state(self) -> np.ndarray:
-        return self._joint_state
-
-    def command_joint_state(self, joint_state: np.ndarray) -> None:
-        assert len(joint_state) == self._num_joints, (
-            f"Expected joint state of length {self._num_joints}, "
-            f"got {len(joint_state)}."
-        )
-        _joint_state = joint_state.copy()
-        _joint_state[-1] = 255 - _joint_state[-1] * 255
-        self._joint_cmd = _joint_state
-
-    def freedrive_enabled(self) -> bool:
-        return True
-
-    def set_freedrive_mode(self, enable: bool):
-        pass
-
-    def get_observations(self) -> Dict[str, np.ndarray]:
-        # TODO update this
-        joint_positions_l = pb_get_joint_angles(self.pb0, self.pb_arm_left)
-        joint_positions_r = pb_get_joint_angles(self.pb0, self.pb_arm_right)
-        ee_pos = np.zeros(3)
-        ee_quat = np.zeros(4)
-        return {
-            "joint_positions_l": joint_positions_l,
-            "joint_positions_r": joint_positions_r,
-            "ee_pos_quat": np.concatenate([ee_pos, ee_quat]),
-            "gripper_position": 0,
-        }
-
-    def serve(self) -> None:
-        # start the zmq server
-        self._zmq_server_thread_r.start()
-        self._zmq_server_thread_l.start()
-        
-        while True:
-            
-            self.pb0.stepSimulation()
-            time.sleep(1. / 60.)
-        
-        # step the simulation
-
-    def stop(self) -> None:
-        self._zmq_server_thread_r.join()
-        self._zmq_server_thread_l.join()
 
     def __del__(self) -> None:
         self.stop()

@@ -1,7 +1,7 @@
 ## Quickstart
 
 Step 1: calibrate
-`python3 scripts/gello_get_offset.py --start-joints 0 0 0 -1.57 0 1.57 0.753 --joint-signs 1 -1 1 -1 1 -1 1 --port /dev/ttyUSB0`
+`python3 scripts/gello_get_offset.py --start-joints 0 0 0 -1.57 0 1.57 0.753 --joint-signs 1 -1 1 -1 1 -1 1 --port /dev/ttyGelloRight`
 modify numbers in 
 `gello/agents/gello_agent.py`
 
