@@ -51,15 +51,6 @@ def launch_robot_server(args: Args):
             xml_path=xml, gripper_xml_path=None, port=port, host=args.hostname
         )
         server.serve()
-    elif args.robot == "sim_bimanual_panda":
-        from gello.robots.sim_robot import SimBimanualRobotServer
-
-        xml = "/home/kdm/Workspace/vlm-policy-learning/data/franka_arm/panda.urdf"
-        server = SimBimanualRobotServer(
-            urdf_path=xml, port=port, host=args.hostname
-        )
-        server.serve()
-
     else:
         if args.robot == "xarm":
             from gello.robots.xarm_robot import XArmRobot
