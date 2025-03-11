@@ -14,10 +14,10 @@ MAX_OPEN = 0.09
 class PandaRobot(Robot):
     """A class representing a UR robot."""
 
-    def __init__(self, robot_ip: str = "100.97.47.74"):
+    def __init__(self, robot_ip: str = "100.97.47.74", config_file: str = "charmander.yml"):
 
         self.robot = FrankaInterface(
-            config_root + "/charmander.yml",
+            config_root + f"/{config_file}",
             use_visualizer=False
         )
         self.gripper = None

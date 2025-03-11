@@ -63,7 +63,7 @@ def launch_robot_server(args: Args):
         elif args.robot == "panda":
             from gello.robots.panda import PandaRobot
 
-            robot = PandaRobot(robot_ip=args.robot_ip)
+            robot = PandaRobot(robot_ip=args.robot_ip, config_file="charmander.yml")
         elif args.robot == "bimanual_ur":
             from gello.robots.ur import URRobot
 
@@ -75,9 +75,9 @@ def launch_robot_server(args: Args):
             from gello.robots.bimanual_panda import BimanualPandaRobot
             from gello.robots.panda import PandaRobot
 
-            _robot_l = PandaRobot()
-            _robot_r = PandaRobot()
-            robot = BimanualPandaRobot(_robot_l, _robot_r)
+            _robot_l = PandaRobot(config_file="charmander_left.yml")
+            _robot_r = PandaRobot(config_file="charmander_right.yml")
+            robot = BimanualPandaRobot(robot_l=_robot_l, robot_r=_robot_r)
 
         elif args.robot == "none" or args.robot == "print":
             robot = PrintRobot(8)
