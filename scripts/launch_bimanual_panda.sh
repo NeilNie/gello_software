@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# Check if "sim" argument is provided
+if [ "$1" == "sim" ]; then
+    ROBOT="sim_panda"
+else
+    ROBOT="panda"
+fi
+
 # Name of the tmux session
 SESSION_NAME="bimanual_sim"
 
@@ -14,12 +21,12 @@ tmux split-window -h -t "$SESSION_NAME:0"
 # 4. In the first pane, run the command with robot_port=6001
 tmux send-keys -t "$SESSION_NAME:0.0" "conda activate vlm-policy" C-m
 tmux send-keys -t "$SESSION_NAME:0.0" "cd ../" C-m
-tmux send-keys -t "$SESSION_NAME:0.0" "python3 experiments/launch_nodes.py --robot sim_panda --robot_port 6001 --hostname 127.0.0.1" C-m
+tmux send-keys -t "$SESSION_NAME:0.0" "python3 experiments/launch_nodes.py --robot ${ROBOT} --config-file charmander_left.yml --robot_port 6001 --hostname 127.0.0.1" C-m
 
-# 5. In the second pane, run the command with robot_port=6002
+# 5. In the second pane, run the command with robot_port=6001
 tmux send-keys -t "$SESSION_NAME:0.1" "conda activate vlm-policy" C-m
 tmux send-keys -t "$SESSION_NAME:0.1" "cd ../" C-m
-tmux send-keys -t "$SESSION_NAME:0.1" "python3 experiments/launch_nodes.py --robot sim_panda --robot_port 6001 --hostname 127.0.0.2" C-m
+tmux send-keys -t "$SESSION_NAME:0.1" "python3 experiments/launch_nodes.py --robot ${ROBOT} --config-file charmander_right.yml --robot_port 6001 --hostname 127.0.0.2" C-m
 
 # Finally, attach to the session so it's visible in the terminal
 tmux attach-session -t "$SESSION_NAME"
