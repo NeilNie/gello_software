@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from termcolor import cprint
 
 import tyro
 
@@ -10,6 +11,7 @@ from gello.zmq_core.robot_node import ZMQServerRobot
 @dataclass
 class Args:
     robot: str = "xarm"
+    config_file: str = "charmander.yml"
     robot_port: int = 6001
     hostname: str = "127.0.0.1"
     robot_ip: str = "192.168.1.10"
@@ -63,7 +65,10 @@ def launch_robot_server(args: Args):
         elif args.robot == "panda":
             from gello.robots.panda import PandaRobot
 
-            robot = PandaRobot(robot_ip=args.robot_ip, config_file="charmander.yml")
+            print(f"Using config file: {args.config_file}")
+            robot = PandaRobot(robot_ip=args.robot_ip, config_file=args.config_file)
+            cprint("Panda Robot initialized", "green")
+            
         elif args.robot == "bimanual_ur":
             from gello.robots.ur import URRobot
 
@@ -78,6 +83,7 @@ def launch_robot_server(args: Args):
             _robot_l = PandaRobot(config_file="charmander_left.yml")
             _robot_r = PandaRobot(config_file="charmander_right.yml")
             robot = BimanualPandaRobot(robot_l=_robot_l, robot_r=_robot_r)
+            cprint("Bimanual Panda Robot initialized", "green")
 
         elif args.robot == "none" or args.robot == "print":
             robot = PrintRobot(8)

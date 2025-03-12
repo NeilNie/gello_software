@@ -36,7 +36,7 @@ class BimanualAgent(Agent):
         self.agent_left = agent_left
         self.agent_right = agent_right
 
-    def act(self, obs: BimanualObservation) -> np.ndarray:
+    def act(self, obs: Dict) -> np.ndarray:
         return np.concatenate(
-            [self.agent_left.act(obs.robot_l), self.agent_right.act(obs.robot_r)]
+            [self.agent_left.act(obs["robot_l"]), self.agent_right.act(obs["robot_r"])]
         )
